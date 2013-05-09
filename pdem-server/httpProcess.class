@@ -1,0 +1,34 @@
+' Gambas class file
+
+INHERITS rProcess
+
+PUBLIC url AS String
+
+PUBLIC Method AS Integer
+
+PUBLIC CONST httpMethodGet AS Integer = 1
+PUBLIC CONST httpMethodPost AS Integer = 2
+
+PUBLIC FUNCTION getcommand() AS String
+  
+  RETURN ME.url
+   
+END
+
+PUBLIC SUB Start()
+
+  DIM tmps AS String
+  
+  IF ME.bIsStarted = FALSE THEN 
+    tmps = "wget -q  -O - " & ME.url
+    ME.ProcessObj = EXEC Split(tmps, " ") FOR READ AS "someProcess"
+    ME.ProcessObj.tag = ME.ProcessName
+    ME.bIsStarted = TRUE
+    ME.StartTime = Now
+  
+  END IF
+  
+  
+  ME.BeginTimeCount()
+  
+END

@@ -1,0 +1,3 @@
+' Gambas class file
+PUBLIC CommandName AS String
+PUBLIC Parameters AS NEW String[]

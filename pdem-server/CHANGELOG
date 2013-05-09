@@ -1,0 +1,12 @@
+* Thu Feb 28 2013 mihanentalpo <mihanentalpo@yandex.ru> 0.0.8
+- added daemonization config option
+
+* Wed Feb 27 2013 mihanentalpo <mihanentalpo@yandex.ru> 0.0.5
+- added [PDEM[var:x=y]PDEM]
+
+* Tue Feb 26 2013 mihanentalpo <mihanentalpo@yandex.ru> 0.0.4
+- working release
+
+* Wed Feb 20 2013 mihanentalpo <mihanentalpo@yandex.ru> 0.0.3
+- First alpha release
+
