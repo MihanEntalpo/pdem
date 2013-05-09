@@ -11,7 +11,7 @@ class pdem
 	private static $procs=false;
 
 	/**
-	 *  @return integer возвращает 0 если соединение удалось установить
+	 *  @return integer возвращает номер сокета если соединение удалось установить
 	 */
 	static function connect($host,$port=5555,&$errno=0,&$errstr="")
 	{
@@ -22,14 +22,23 @@ class pdem
 		return self::$conn_socket;
 	}
 
+	/**
+	 *  отключиться
+	 */
 	static function disconnect()
 	{
 		if (self::$connected) fclose($conn_socket);
 	}
 
+	
 	private function __construct(){}
 
-
+	/**
+	 *  Возвращает список процессов со всеми их внутренними данными.
+	 *  @param boolean $forceRefresh - заставляет заново обратиться к серверу
+	 *  @param string $filter_regex - регулярное выражение
+	 *  @return array массив ключи которого - имена процессов, а значения - массивы данных по каждому из процессов. Среди данных - имя, заголовок, тип и т.д.
+	 */ 
 	static function proclist($forceRefresh=false,$filter_regex="")
 	{
 		//Определение именованных параметров процесса в порядке их расположения в строке выдачи
@@ -115,7 +124,10 @@ class pdem
 		return $procs;
 	}
 
-	static function killall($nameRegex)
+	/**
+	 *  Убивает кучу процессов, имена которых совпадают по регулярному выражению
+	 */ 
+	static function killall($nameRegex='')
 	{
 		$procS = self::proclist(true,$nameRegex);
 		$k = array();
@@ -126,6 +138,10 @@ class pdem
 		self::kill($k);
 	}
 
+	/**
+	 *  Убивает один или несколько процессов
+	 *  @param array|string $procS имя одного процесса, либо массив имен убиваемых процессов
+	 */ 
 	static function kill($procS)
 	{
 		$arr = array("kill");
@@ -140,16 +156,25 @@ class pdem
 		return self::raw_request($arr);
 	}
 
+	/**
+	 * Запускает bash-команду
+	 */ 
 	static function runLocal($name,$title,$shellcmd)
 	{
 		return self::raw_request(array("runprocess",$name, $title,"local",$shellcmd));
 	}
 
+	/**
+	 *  Запускает http-get запрос
+	 */ 
 	static function runHttp($name,$title,$url)
 	{
 		return self::raw_request(array("runprocess",$name, $title,"http",$url));
 	}
 
+	/**
+	 *  ВЫполняет разбивку строки, заданной в формате синтаксиса [CMD[, [ANS[, или [PDEM[ - то есть набора слов разбитых пробелами
+	 */ 
 	static function spExplode($str)
 	{
 		$l = strlen($str);
@@ -196,9 +221,47 @@ class pdem
 		}
 		return $parts;
 	}
+	
+	/**
+	 *  Функция для вывода сообщения "[PDEM[progressenabled]PDEM]"
+	 */ 
+	static function console_progress_enabled()
+	{
+		echo "[PDEM[progressenabled]PDEM]";
+	}
+	
+	/**
+	 *  Функция для вывода прогресса
+	 */ 
+	static function console_progress($progress)
+	{
+		$progress = (int)$progress;
+		if ($progress < 0) $progress = 0;
+		if ($progress > 100) $progress = 100;
+		
+		echo "[PDEM[progress={$progress}]PDEM]";
+	}
 
-	/*
-	 *
+	/**
+	 *  Функция для вывода одной переменной [PDEM[var:name=value]PDEM]
+	 */ 
+	static function console_var($name,$value)
+	{
+		echo "[PDEM[var:{$name}={$value}]PDEM]";
+	}
+
+	/**
+	 *  Функция для вывода набора переменных из массива 
+	 */ 
+	static function console_vars($vars)
+	{
+		foreach($vars as $name=>$value)
+		{
+			self::console_var($name,$value);
+		}
+	}
+
+	/*	 
 	 * Отправить запрос в виде "сырых данных"
 	 * @param string|array $data Если строка - отправляется в обрамлении [CMD[ ]CMD],
 	 *                           если массив - превращается в строку разбиваемую пробелами, внутренние пробелы элементов заменяются на "\ "
@@ -256,6 +319,8 @@ class pdem
 		return $result;
 	}
 }
+
+
 
 
 //Тестирование:
