@@ -30,7 +30,9 @@ PUBLIC SUB someProcess_Read()
   
   proc = prcs[procName]
   proc.InputBuffer &= txt
-  TryToProcessInput(procName)
+  
+  DO 
+  LOOP WHILE TryToProcessInput(procName)
   
 END
 
@@ -46,16 +48,21 @@ SUB someProcess_Kill()
 END
 
 
-PRIVATE SUB TryToProcessInput(procName AS String)
+PRIVATE FUNCTION TryToProcessInput(procName AS String) AS Boolean
+  
+  
   'Пробуем получить из входящего потока осмысленные данные. 
   'Если таковые найдены - отбрасываем все что до них
   DIM txt, pdem AS String
   DIM pos1, pos2, i AS Integer
   DIM flag AS Boolean
+  DIM result AS Boolean = FALSE
   txt = prcs[procName].InputBuffer
   pos1 = InStr(txt, "[PDEM[")  
   pos2 = InStr(txt, "]PDEM]", pos1)
+
   
+
   'Если найдены открывающий и закрывающий всевдотеги
   IF pos1 > 0 AND pos2 > 0 THEN 
     pdem = Mid(txt, pos1 + 6, pos2 - pos1 - 6)
@@ -63,7 +70,7 @@ PRIVATE SUB TryToProcessInput(procName AS String)
     txt = Mid(txt, pos2 + 6, Len(txt) - 6)
     prcs[procName].InputBuffer = txt
     ProcAcceptInfo(procName, pdem)
-    TryToProcessInput(procName)
+    result = TRUE
   'Если найден только открывающий псевдотег
   ELSE IF pos1 > 0 THEN 
     prcs[procName].InputBuffer = Mid(txt, pos1, Len(txt) - pos1)   
@@ -84,6 +91,7 @@ PRIVATE SUB TryToProcessInput(procName AS String)
     'Запишем измененный txt в буфер обратно
     prcs[procName].InputBuffer = txt
   END IF  
+  RETURN result
   
 END
 
