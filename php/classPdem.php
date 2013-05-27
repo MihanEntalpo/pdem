@@ -180,6 +180,14 @@ class pdem
 	}
 
 	/**
+	*  Заставляет pdem уничтожить информацию о мертвых процессах
+	*/ 
+	static function burnDead()
+	{
+	    return self::raw_request(array('burndead'));
+	}
+	
+	/**
 	 *  ВЫполняет разбивку строки, заданной в формате синтаксиса [CMD[, [ANS[, или [PDEM[ - то есть набора слов разбитых пробелами
 	 */ 
 	static function spExplode($str)
@@ -236,6 +244,7 @@ class pdem
 	{
 		echo "[PDEM[progressenabled]PDEM]";
 	}
+	
 	
 	/**
 	 *  Функция для вывода прогресса
