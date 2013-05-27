@@ -1,3 +1,9 @@
+* Mon May 27 2013 mihanentalpo <mihanentalpo@yandex.ru> 0.0.11
+- added functionality to see old dead processes, by send "proclist showdead", and remove them by send "burndead"
+
+* Sat May 25 2013 mihanentalpo <mihanentalpo@yandex.ru> 0.0.10
+- fixed bug with stack opverflow in case of lots of incoming process'es data. But now it will consume more CPU.
+
 * Thu Feb 28 2013 mihanentalpo <mihanentalpo@yandex.ru> 0.0.8
 - added daemonization config option
 

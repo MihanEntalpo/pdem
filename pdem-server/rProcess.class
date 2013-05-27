@@ -12,6 +12,11 @@ PUBLIC Progress AS Integer
 'Буфер сообщений данного процесса
 '(то, что процесс сообщает)
 PUBLIC InputBuffer AS String
+'Жив ли процесс, или уже нет?
+PUBLIC Alive AS Boolean
+'момент смерти 
+PUBLIC DieMoment AS Date
+
 
 'момент запуска процесса
 PUBLIC StartTime AS Date
@@ -42,6 +47,12 @@ PRIVATE SUB BeginTimeCount()
   
 END
 
+PUBLIC SUB Die()
+  
+  ME.Alive = FALSE
+  ME.DieMoment = Now
+  
+END
 
  
 PUBLIC SUB _new()
@@ -51,8 +62,13 @@ PUBLIC SUB _new()
 END
 
 PUBLIC FUNCTION LifeTimeSec() AS Integer
+    
+  IF ME.Alive THEN 
+    RETURN Abs(DateDiff(Now, ME.StartTime, gb.Second))
+  ELSE 
+    RETURN Abs(DateDiff(ME.DieMoment, ME.StartTime, gb.Second))
+  END IF
   
-  RETURN Abs(DateDiff(Now, ME.StartTime, gb.Second))
   
 END
 
@@ -60,10 +76,10 @@ END
 PUBLIC FUNCTION TimeEstimated() AS Integer
   DIM d AS Float  
   IF SupportsProgress THEN 
-    d = Progress
-    IF d = 0 THEN d = 1
-    IF d > 99 THEN d = 99
-    RETURN (ME.LifeTimeSec() / d) * (100 - d)
+      d = Progress
+      IF d = 0 THEN d = 1
+      IF d > 99 THEN d = 99
+      RETURN (ME.LifeTimeSec() / d) * (100 - d)    
   ELSE 
     RETURN 0
   END IF

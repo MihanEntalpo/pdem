@@ -102,6 +102,7 @@ PUBLIC FUNCTION ExecFunction(Client AS Socket, Command AS String) AS String
   DIM Cl AS Socket
   DIM tStr AS String
   DIM proc AS rProcess
+  DIM ShowDead AS Boolean
   
   cmd = ParseCommand(command)
   DEBUG "Client command:" & cmd.CommandName
@@ -142,7 +143,14 @@ PUBLIC FUNCTION ExecFunction(Client AS Socket, Command AS String) AS String
   CASE "runprocess"
     RETURN RunProcess(cmd)
   CASE "proclist"
-    RETURN MMain.rProc.ProcList()
+    IF (cmd.Parameters.Count = 0) THEN 
+      ShowDead = FALSE
+    ELSE IF (cmd.Parameters[0] = "showdead")
+      ShowDead = TRUE
+    END IF
+    RETURN MMain.rProc.ProcList(ShowDead)
+  CASE "burndead"
+    RETURN MMain.rProc.BurnDead()
   CASE "help"
     result = ""
     result &= "Syntax: COMMAND PARAM1 PARAM2 PARAM3 ...\n"
@@ -161,7 +169,8 @@ PUBLIC FUNCTION ExecFunction(Client AS Socket, Command AS String) AS String
     result &= "             \" runprocess get_all_sites получение\\ данных\\ обо\\ всех\\ сайтах local /var/server-scripts/get_all_sites.sh \" - runs script in local filesystem \n"
     result &= "             \" runprocess get_2_sites получение\\ данных\\ о\\ 2-х\\ сайтах agregate get_site_1 Получение\\ информации\\ об\\ 1\\ сайте local /usr/bin/getsite\\ num=1 get_site_2 Получение\\ информации\\ об\\ 2\\ сайте local /usr/bin/getsite\\ num=2\" - runs 2 scripts one by one, agregating it into one script \n"
     result &= "\n"
-    result &= "proclist - shows list of processes, with their statuses" 
+    result &= "proclist [showdead] - shows list of processes, with their statuses (if keyword 'showdead' specified - shows also dead processes" 
+    result &= "burndead - removes all dead processes from internal list"
   CASE ELSE 
     result = "ERROR:unknown_command"
   END SELECT
@@ -172,7 +181,7 @@ END
 
 
 PUBLIC FUNCTION RunProcess(cmd AS clsCommand) AS String
-  
+
   DIM Name, Title, mode AS String
   DIM OtherParams AS NEW String[]
   DIM i AS Integer
@@ -187,8 +196,13 @@ PUBLIC FUNCTION RunProcess(cmd AS clsCommand) AS String
   mode = Trim(cmd.Parameters[2])
   
   IF (MMain.rProc.FindProcess(name) <> NULL) THEN 
-    DEBUG "error, duplicate process name: " & name
-    RETURN "ERROR: process' name already exists"
+    IF (MMain.rProc.FindProcess(name).alive = FALSE) THEN 
+      DEBUG "Removing old dead process"
+      MMain.rProc.BurnSingleDead(name)
+    ELSE 
+      DEBUG "error, duplicate process name: " & name
+      RETURN "ERROR: process' name already exists"
+    END IF    
   END IF
   
   FOR i = 3 TO cmd.Parameters.Count - 1

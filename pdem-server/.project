@@ -1,0 +1,20 @@
+# Gambas Project File 2.0
+# Compiled with Gambas 2.21.0
+Title=pdem
+Startup=MMain
+Version=0.0.11
+Library=gb.debug
+Library=gb.net
+Library=gb.pcre
+Library=gb.settings
+Authors=mihanentalpo
+TabSize=2
+Maintainer=mihanentalpo
+Address=mihanentalpo@yandex.ru
+Url=http://vk.com/mihanentalpo
+License=General Public Licence
+UseRelease=1
+Systems=debian
+Menus=Applications/System/Administration
+Categories=System
+Groups=admin

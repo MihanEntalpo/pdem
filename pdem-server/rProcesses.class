@@ -43,7 +43,9 @@ SUB someProcess_Kill()
   prc = LAST
   procName = prc.Tag
   DEBUG "Process is done: " & procName
-  prcs.Remove(procName)
+  prcs[procName].die()
+  
+  'prcs.Remove(procName)
   
 END
 
@@ -108,7 +110,8 @@ PUBLIC SUB KillProcess(procNames AS String[])
     
     IF (p.ProcessType <> p.TypeAgregate) THEN 
       p.ProcessObj.Kill()
-      prcs.Remove(procName)
+      prcs[procName].die()
+      'prcs.Remove(procName)
     END IF
   
   NEXT
@@ -152,6 +155,15 @@ PUBLIC FUNCTION ProcAcceptInfo(procName AS String, info AS String)
   
 END
 
+PUBLIC SUB BurnSingleDead(Name AS String)
+  
+  IF prcs.Exist(name) THEN 
+    IF prcs[name].alive = FALSE THEN prcs.Remove(name)
+  END IF
+  
+END
+
+
 
 PUBLIC FUNCTION RunProcess(pType AS Integer, Name AS String, Title AS String, OtherOptions AS string[], OPTIONAL parentName AS String = "")
 
@@ -186,6 +198,7 @@ PUBLIC FUNCTION RunProcess(pType AS Integer, Name AS String, Title AS String, Ot
   p.ProcessTitle = title
   p.SupportsProgress = FALSE
   p.StartTime = Now
+  p.alive = TRUE
   
   prcs.Add(p, name)
   
@@ -199,35 +212,69 @@ PUBLIC SUB pokeAstick()
   DIM Done AS NEW Collection
   DIM S AS String
   FOR EACH p IN prcs
-    pr = p.ProcessObj
-    IF pr.State <> pr.Running THEN 
-      DEBUG "Process is done: " & p.ProcessName
-      Done.Add(p.ProcessName, p.ProcessName)
+    IF p.alive = TRUE THEN
+      pr = p.ProcessObj
+      IF pr.State <> pr.Running THEN 
+        DEBUG "Process is done: " & p.ProcessName
+        Done.Add(p.ProcessName, p.ProcessName)
+      END IF
     END IF
   NEXT 
   FOR EACH s IN Done
-    prcs.Remove(s)
+    prcs[s].die()
+    'prcs.Remove(s)
   NEXT
   
   
 END
 
 
-PUBLIC FUNCTION ProcList() AS String
+'Сжечь мертвых
+PUBLIC SUB BurnDead() AS String
+  
+  DIM P AS Object
+  DIM Pr AS Process
+  DIM Done AS NEW Collection
+  DIM S AS String
+  FOR EACH p IN prcs
+    IF p.alive = FALSE THEN      
+        Done.Add(p.ProcessName, p.ProcessName)      
+    END IF
+  NEXT 
+  FOR EACH s IN Done    
+    prcs.Remove(s)
+  NEXT
+  
+  RETURN "OK"
+  
+END
+
+
+PUBLIC FUNCTION ProcList(ShowDead AS Boolean) AS String
   
   DIM s, tmp AS String
   DIM p AS Object
   
   FOR EACH p IN prcs
  
-    s &= MMain.AddSlashes(p.ProcessName) & " " & MMain.AddSlashes(p.ProcessTitle) & " " & p.typename() & " " & MMain.AddSlashes(p.getcommand()) & " " & p.LifeTimeSec()
-    s &= " supportsprogress=" & IIf(p.SupportsProgress, 1, 0) & " progress=" & p.Progress & " timeestimated=" & p.TimeEstimated()
-    
-    FOR EACH tmp IN p.custom_vars
-      s &= " " & MMain.AddSlashes(p.custom_vars.key) & "=" & MMain.AddSlashes(tmp)
-    NEXT 
-    
-    s &= "\n"
+    IF (ShowDead OR p.alive) THEN
+ 
+      s &= MMain.AddSlashes(p.ProcessName) & " " & MMain.AddSlashes(p.ProcessTitle) & " " & p.typename() & " " & MMain.AddSlashes(p.getcommand()) & " " & p.LifeTimeSec()
+      s &= " supportsprogress=" & IIf(p.SupportsProgress, 1, 0) & " progress=" & p.Progress & " timeestimated=" & p.TimeEstimated()
+      
+      FOR EACH tmp IN p.custom_vars
+        s &= " " & MMain.AddSlashes(p.custom_vars.key) & "=" & MMain.AddSlashes(tmp)
+      NEXT 
+      
+      IF (p.alive) THEN 
+        s &= " alive"
+      ELSE 
+        s &= " dead" 
+      ENDIF
+      
+      s &= "\n"
+      
+    END IF
     
   NEXT
   
