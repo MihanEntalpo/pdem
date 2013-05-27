@@ -39,7 +39,7 @@ class pdem
 	 *  @param string $filter_regex - регулярное выражение
 	 *  @return array массив ключи которого - имена процессов, а значения - массивы данных по каждому из процессов. Среди данных - имя, заголовок, тип и т.д.
 	 */ 
-	static function proclist($forceRefresh=false,$filter_regex="")
+	static function proclist($forceRefresh=false,$filter_regex="",$showDead=false)
 	{
 		//Определение именованных параметров процесса в порядке их расположения в строке выдачи
 		$map = array('name','title','type','cmd','lifetime','supportsprogress','progress','timeestimated');
@@ -48,9 +48,8 @@ class pdem
 
 		if (self::$procs===FALSE || $forceRefresh)
 		{
-			$data = self::raw_request('proclist');
-
-			//echo $data;
+		      
+			$data = self::raw_request('proclist' . ($showDead ? ' showdead' : ''));
 
 			if ($data=='0')
 			{
@@ -83,6 +82,14 @@ class pdem
 
 
 							//echo "\nITEM[" . $map[$key] . "]=".$item[$map[$key]] . "\n";
+						}
+						else if($val=='alive')
+						{
+							$item['alive']=true;
+						}
+						else if($val=='dead')
+						{
+							$item['alive']=false;
 						}
 						else
 						{
