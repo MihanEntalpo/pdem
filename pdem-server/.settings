@@ -36,16 +36,12 @@ SearchComment=False
 SearchString=True
 
 [OpenFile]
-File[1]="rProcesses.class:90.2"
-File[2]="MMain.module:6.0"
-Active=2
-File[3]="NetOperator.module:73.22"
-File[4]="clsCommand.class:0.0"
-File[5]="rProcess.class:88.2"
-File[6]="httpProcess.class:20.2"
-File[7]="localProcess.class:8.16"
-File[8]="aggregateProcess.class:6.0"
-Count=8
+File[1]="rProcesses.class:225.6"
+Active=1
+File[2]="NetOperator.module:204.10"
+File[3]="rProcess.class:51.18"
+File[4]="localProcess.class:8.16"
+Count=4
 
 [Watches]
 Count=1
