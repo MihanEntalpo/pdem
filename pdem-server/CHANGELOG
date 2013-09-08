@@ -1,3 +1,6 @@
+* Sun Sep 08 2013 mihanentalpo <mihanentalpo@yandex.ru> 0.0.12
+- AFixed bug - when some of process' vars contain newline symbol it lead to a broken output. Now, '\n' converted to '\\n'.
+
 * Mon May 27 2013 mihanentalpo <mihanentalpo@yandex.ru> 0.0.11
 - added functionality to see old dead processes, by send "proclist showdead", and remove them by send "burndead"
 

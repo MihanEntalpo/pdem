@@ -131,6 +131,7 @@ PUBLIC FUNCTION AddSlashes(src AS String) AS String
   dest = src
   dest = Replace(dest, "\\", "\\\\")
   dest = Replace(dest, " ", "\\ ")
+  dest = Replace(dest, "\n", "\\n")
   RETURN dest
   
 END

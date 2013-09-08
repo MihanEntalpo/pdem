@@ -2,7 +2,7 @@
 # Compiled with Gambas 2.21.0
 Title=pdem
 Startup=MMain
-Version=0.0.11
+Version=0.0.12
 Library=gb.debug
 Library=gb.net
 Library=gb.pcre
