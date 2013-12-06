@@ -1,0 +1,289 @@
+' Gambas class file
+
+' Коллекция процессов
+Private prcs As New Collection
+
+Event ProcessEnd(ProcName As String)
+
+Public Function FindProcess(Name As String) As Object
+  
+  If prcs.Exist(name) Then Return prcs[name]
+  
+  Return Null
+  
+End
+
+Public Sub someProcess_Read()
+  
+  Dim prc As Process
+  Dim txt As String
+  Dim procName As String
+  Dim proc As RProcess
+  prc = Last
+  
+  
+  
+  Read #prc, txt, Lof(prc)
+    
+  procName = prc.Tag
+  
+  Debug "Reading data from process: " & procName
+  
+  proc = prcs[procName]
+  proc.InputBuffer &= txt
+  
+  Do
+  Loop While TryToProcessInput(procName)
+  
+End
+
+Sub someProcess_Kill()
+  Dim prc As Process
+  Dim procName As String
+  
+  prc = Last
+  procName = prc.Tag
+  Debug "Process is done: " & procName
+  prcs[procName].die()
+  
+  'prcs.Remove(procName)
+  
+End
+
+
+Private Function TryToProcessInput(procName As String) As Boolean
+  
+  
+  'Пробуем получить из входящего потока осмысленные данные. 
+  'Если таковые найдены - отбрасываем все что до них
+  Dim txt, pdem As String
+  Dim pos1, pos2, i As Integer
+  Dim flag As Boolean
+  Dim result As Boolean = False
+  txt = prcs[procName].InputBuffer
+  pos1 = InStr(txt, "[PDEM[")
+  pos2 = InStr(txt, "]PDEM]", pos1)
+
+  
+
+  'Если найдены открывающий и закрывающий всевдотеги
+  If pos1 > 0 And pos2 > 0 Then
+    pdem = Mid(txt, pos1 + 6, pos2 - pos1 - 6)
+    'Message.Info("Info:" & pdem)
+    txt = Mid(txt, pos2 + 6, Len(txt) - 6)
+    prcs[procName].InputBuffer = txt
+    ProcAcceptInfo(procName, pdem)
+    result = True
+  'Если найден только открывающий псевдотег
+  Else If pos1 > 0 Then
+    prcs[procName].InputBuffer = Mid(txt, pos1, Len(txt) - pos1)
+  'Если ничего не найдено
+  Else
+    'попытаемся найти кусочек открывающего псевдотега на конце строки
+    flag = False
+    For i = 4 To 1 Step -1
+      'Если кусочек найден
+      If Right(txt, i) = Left("[PDEM[", i) Then
+        'Оставим только сам кусочек
+        txt = Left("[PDEM[", i)
+        flag = True
+      End If
+    Next
+    'Если кусочек мы так и не нашли - удаляем вообще весь текст    
+    If flag = False Then txt = ""
+    'Запишем измененный txt в буфер обратно
+    prcs[procName].InputBuffer = txt
+  End If
+  Return result
+  
+End
+
+Public Sub KillProcess(procNames As String[])
+  
+  Dim procName As String
+  Dim p As RProcess
+  
+  For Each procName In procNames
+  
+    Debug "Killing process:" & procName
+    
+    p = Me.FindProcess(ProcName)
+    
+    If (p.ProcessType <> p.TypeAgregate) Then
+      p.ProcessObj.Kill()
+      prcs[procName].die()
+      'prcs.Remove(procName)
+    End If
+  
+  Next
+  
+End
+
+'Обработка сообщения от процесса
+Public Function ProcAcceptInfo(procName As String, info As String)
+  Dim p As RProcess
+  Dim sa As String[]
+  Dim cvar, cval As String
+  
+  Dim tmp As String
+  p = prcs[procName]
+  If info = "progressenabled" Then
+    p.SupportsProgress = True
+  Else If InStr(info, "progress=") > 0 And Min(p.SupportsProgress, 100) Then
+     If Len(info) > 9 Then
+         Try p.Progress = CInt(Val(Right(info, Len(info) - 9)))
+        'Message.Info("progress:" & p.Progress) 
+     End If
+  Else If info = "done" Then
+    'процесс заврешился
+  Else
+    If Left(info, 4) = "var:" Then
+      tmp = Right(info, Len(info) - 4)
+      sa = Split(tmp, "=")
+      If sa.count > 1 Then
+        cvar = Trim(sa[0])
+        cval = Trim(sa[1])
+        If p.custom_vars.Exist(cvar) Then
+          p.custom_vars[cvar] = cval
+        Else
+          p.custom_vars.Add(cval, cvar)
+        End If
+        
+      End If
+    End If
+  
+  End If
+  
+End
+
+Public Sub BurnSingleDead(Name As String)
+  
+  If prcs.Exist(name) Then
+    If prcs[name].alive = False Then prcs.Remove(name)
+  End If
+  
+End
+
+
+
+Public Function RunProcess(pType As Integer, Name As String, Title As String, OtherOptions As String[], Optional parentName As String = "")
+
+  Dim tmps As String
+  Dim tmpSS As New String[]
+  Dim P As Object
+  
+  
+  
+  Select Case pType
+    Case rProcess.TypeLocal
+      P = New LocalProcess
+      P.shellscript = OtherOptions[0]
+      P.ProcessObj = Exec Split(P.shellscript, " ") For Read As "someProcess"
+      p.ProcessObj.tag = Name
+      Debug "RUN CMD:" & p.shellscript
+    Case rProcess.TypeHttp
+      p = New HttpProcess
+      p.url = OtherOptions[0]
+      tmps = "wget -q  -O - " & p.url
+      P.ProcessObj = Exec Split(tmps, " ") For Read As "someProcess"
+      p.ProcessObj.tag = Name
+      Debug "RUN CMD:" & tmps
+    Case rProcess.TypeAgregate
+      p = New AggregateProcess
+      p.ProcessName = name
+      
+  End Select
+  
+  p.processType = pType
+  p.ProcessName = Name
+  p.ProcessTitle = title
+  p.SupportsProgress = False
+  p.StartTime = Now
+  p.alive = True
+  
+  prcs.Add(p, name)
+  
+End
+
+'потыкать процессы палкой
+Public Sub pokeAstick()
+  
+  Dim P As Object
+  Dim Pr As Process
+  Dim Done As New Collection
+  Dim S As String
+  For Each p In prcs
+    If p.alive = True Then
+      pr = p.ProcessObj
+      If pr.State <> pr.Running Then
+        Debug "Process is done: " & p.ProcessName
+        Done.Add(p.ProcessName, p.ProcessName)
+      End If
+    End If
+  Next
+  For Each s In Done
+    prcs[s].die()
+    'prcs.Remove(s)
+  Next
+  
+  
+End
+
+
+'Сжечь мертвых
+Public Sub BurnDead() As String
+  
+  Dim P As Object
+  Dim Pr As Process
+  Dim Done As New Collection
+  Dim S As String
+  For Each p In prcs
+    If p.alive = False Then
+        Done.Add(p.ProcessName, p.ProcessName)
+    End If
+  Next
+  For Each s In Done
+    prcs.Remove(s)
+  Next
+  
+  Return "OK"
+  
+End
+
+
+Public Function ProcList(ShowDead As Boolean) As String
+  
+  Dim s, tmp As String
+  Dim p As Object
+  
+  For Each p In prcs
+ 
+    If (ShowDead Or p.alive) Then
+ 
+      s &= MMain.AddSlashes(p.ProcessName) & " " & MMain.AddSlashes(p.ProcessTitle) & " " & p.typename() & " " & MMain.AddSlashes(p.getcommand()) & " " & p.LifeTimeSec()
+      s &= " supportsprogress=" & IIf(p.SupportsProgress, 1, 0) & " progress=" & p.Progress & " timeestimated=" & p.TimeEstimated()
+      
+      For Each tmp In p.custom_vars
+        s &= " " & MMain.AddSlashes(p.custom_vars.key) & "=" & MMain.AddSlashes(tmp)
+      Next
+      
+      If (p.alive) Then
+        s &= " alive"
+      Else
+        s &= " dead"
+      Endif
+      
+      s &= "\n"
+      
+    End If
+    
+  Next
+  
+  If s = "" Then s = "0"
+  
+  Return s
+  
+End
+
+
+

@@ -1,0 +1,108 @@
+' Gambas class file
+
+'Объект управления процессом
+Public ProcessObj As Process
+'Название процесса
+Public ProcessName As String
+'Заголовок процесса
+Public ProcessTitle As String
+'Поддеривает ли он сообщения о прогрессе?
+Public SupportsProgress As Boolean
+'Какой прогресс у данного процесса
+Public Progress As Integer
+'Буфер сообщений данного процесса
+'(то, что процесс сообщает)
+Public InputBuffer As String
+'Жив ли процесс, или уже нет?
+Public Alive As Boolean
+'момент смерти 
+Public DieMoment As Date
+
+
+'момент запуска процесса
+Public StartTime As Date
+
+Public ProcessType As Integer
+
+Public isChild As Boolean
+Public parentName As String
+
+Public bIsStarted As Boolean
+
+Public custom_vars As New Collection
+
+'Константы типов процессов
+Public Const TypeLocal As Integer = 1
+Public Const TypeHttp As Integer = 2
+Public Const TypeAgregate As Integer = 3
+ 
+Public Function isStarted() As Boolean
+  
+  Return Me.bIsStarted
+  
+End
+
+Private Sub BeginTimeCount()
+
+  Me.StartTime = Now
+  
+End
+
+Public Sub Die()
+  
+  Me.Alive = False
+  Me.DieMoment = Now
+  
+End
+
+ 
+Public Sub _new()
+  
+  bIsStarted = False
+  
+End
+
+Public Function LifeTimeSec() As Integer
+    
+  If Me.Alive Then
+    Return Abs(DateDiff(Now, Me.StartTime, gb.Second))
+  Else
+    Return Abs(DateDiff(Me.DieMoment, Me.StartTime, gb.Second))
+  End If
+  
+  
+End
+
+'Сколько времени осталось (теоретически)
+Public Function TimeEstimated() As Integer
+  Dim d As Float
+  If SupportsProgress Then
+      d = Progress
+      If d = 0 Then d = 1
+      If d > 99 Then d = 99
+      Return (Me.LifeTimeSec() / d) * (100 - d)
+  Else
+    Return 0
+  End If
+  
+End
+
+ 
+Public Function TypeName() As String
+  
+  Select Case ProcessType
+  Case TypeLocal
+    Return "local"
+  Case TypeHttp
+    Return "http"
+  Case TypeAgregate
+    Return "agregate"
+  End Select
+  
+End
+
+Public Function getcommand() As String
+  
+  Return ""
+  
+End

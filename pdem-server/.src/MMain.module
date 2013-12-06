@@ -1,0 +1,139 @@
+' Gambas module file
+
+Public mT As Timer
+
+Public TcpServer As ServerSocket
+
+Public rProc As New RProcesses
+
+Public msg As Boolean
+
+'Сокеты клиентов
+Public Clients As New Object[]
+'Текстовые буферы входящих данных клиентов
+Public ClientBuffers As New String[]
+
+'Инициализация 
+Public Sub Main()
+
+  
+  mT = New Timer
+  With mt
+    .Delay = 1000
+    .Start
+  End With
+  
+  TcpServer = New ServerSocket
+  
+  If (Settings["ListenPort", -1] = -1) Then Settings["ListenPort"] = 5555
+  If (Settings["Daemonize", -1] = -1) Then Settings["Daemonize"] = 0
+  
+  Settings.Save()
+  
+  If Settings["Daemonize"] = 1 Then Application.Daemon = True
+    
+  With tcpserver
+    .Port = Settings["ListenPort", 5555]
+    .type = Net.Internet
+    .Listen(100)
+  End With
+  
+  Object.Attach(mt, Me, "mT")
+  Object.Attach(TcpServer, Me, "TcpServer")
+  
+  Do
+    Wait (100)
+  Loop
+
+End
+
+'Таймер, срабатывает раз в секунду
+Public Sub mT_Timer()
+  
+  rProc.pokeAstick()
+  
+    
+End
+
+'Ошибка сервера
+Public Sub TcpServer_Error()
+  
+  Print "Error starting listener, probably port already in use"
+  Print "Configure port in " & Settings.Path &/ Application.Name
+  Quit
+  'Message.Info("Ошибка!")
+  
+End
+
+'Входящее подключение к серверу
+Public Sub TcpServer_Connection(sHost As String)
+  
+  Dim newClient As Object
+  If TcpServer.Status <= Net.Inactive Then Return
+  newClient = TcpServer.Accept()
+  Clients.Add(newClient)
+  ClientBuffers.Add("")
+  Debug "Client connected:" & newClient.Host
+  
+End
+
+'На сокет пришли данные
+Public Sub Socket_Read()
+  
+  Dim sBuf As String
+  Dim hexBuf As String
+  Dim i As Integer
+  Dim code As Byte
+       
+  Dim S As Socket
+  s = Last
+    If s.Status <> Net.Connected Then Return
+    
+    Debug "Data arrived from " & s.Host & ":" & s.Port
+    
+    'Считаем данные  
+    Read #s, sBuf, Lof(s)
+    
+    For i = 1 To Len(sbuf)
+      code = Asc(sbuf, i)
+      hexbuf &= Hex(code, 2)
+    Next
+    'Получим результат
+    sBuf = NetOperator.DoCmd(s, sbuf)
+    'Если полученный результат не пуст - вернем его
+    If sBuf <> "" Then
+      Debug "Sending answer to " & s.host & ":" & s.Port
+      'Отправим данные обратно
+      sBuf = "[ANS[" & sBuf & "]ANS]"
+      Write #s, sBuf, Len(sBuf)
+    End If
+  
+End
+
+'Сокет закрылся (клиент отключился)
+Public Sub Socket_Closed()
+  
+  Dim n As Integer
+  n = Clients.Find(Last)
+  Debug "Client disconnected:" & Last.HOST
+  Clients.Remove(n)
+  ClientBuffers.Remove(n)
+  
+  
+End
+
+'Сокет готов к получению данных
+Public Sub Socket_Ready()
+End
+
+Public Function AddSlashes(src As String) As String
+  
+  Dim dest As String
+  dest = src
+  dest = Replace(dest, "\\", "\\\\")
+  dest = Replace(dest, " ", "\\ ")
+  dest = Replace(dest, "\n", "\\n")
+  Return dest
+  
+End
+

@@ -1,0 +1,11 @@
+' Gambas class file
+
+Inherits RProcess
+
+Public ShellScript As String
+
+Public Function getcommand() As String
+  
+  Return Me.ShellScript
+  
+End
