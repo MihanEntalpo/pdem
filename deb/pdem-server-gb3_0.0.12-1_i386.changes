@@ -1,5 +1,5 @@
 Format: 1.8
-Date: Fri, 06 Dec 2013 12:00:00 +0000
+Date: Thu, 24 Jul 2014 12:00:00 +0000
 Source: pdem-server-gb3
 Binary: pdem-server-gb3
 Architecture: source all
@@ -13,19 +13,16 @@ Description:
 Changes: 
  pdem-server-gb3 (0.0.12-1) unstable; urgency=low
  .
-   * Первоначальный релиз под gambas3
+   * New release version
 Checksums-Sha1: 
- eb692702e97b857b8a941130a1ecde9cbe6a940e 1061 pdem-server-gb3_0.0.12-1.dsc
- 6d0e965510a360689e1e6710e68e68ca8ec4cf77 37419 pdem-server-gb3_0.0.12.orig.tar.gz
- 4ace324ad303523b05578654da4a069f2facd956 1157 pdem-server-gb3_0.0.12-1.diff.gz
- 3816161c2f2b597d7663849a1b80ccb01091dbd2 22414 pdem-server-gb3_0.0.12-1_all.deb
+ cf59b13bed21527bd68a5a949c966be587186fa6 1061 pdem-server-gb3_0.0.12-1.dsc
+ 82a331fc8924576cd6fe61edb18822982a129be3 1353 pdem-server-gb3_0.0.12-1.diff.gz
+ 110fcb7e3f75f02d134ee82cf983e49aed269c81 22466 pdem-server-gb3_0.0.12-1_all.deb
 Checksums-Sha256: 
- be22c7955350f0999462218ff9c2186a7d9796db2defcc1594b337980b8f12f5 1061 pdem-server-gb3_0.0.12-1.dsc
- ffc2a385c9f726ef50f3359ce66420a782b6862fd4aca90a36eadd4bad6edc03 37419 pdem-server-gb3_0.0.12.orig.tar.gz
- 779897f598cf30742ce92b32ff9a4cf4f2e711352cc5eaff418e6fc54baa7cd3 1157 pdem-server-gb3_0.0.12-1.diff.gz
- c8741dd8d459e827238bf2c82c59af3eea9ee88f7bbc04f99b9f4d4b7e8dcbff 22414 pdem-server-gb3_0.0.12-1_all.deb
+ 3d7162e80f3248edb2885c05d83b1c16ea13854523172f35a0c4cc71bf71ef77 1061 pdem-server-gb3_0.0.12-1.dsc
+ c9782c47063af17176768c517bf468621bd30cf0de609c3947352b1e0a0e5c0c 1353 pdem-server-gb3_0.0.12-1.diff.gz
+ 1c0f4ccd5b0e76eee8533ba2ae46ddf8972c989f19f9f212ebe0c7b7996f6d0c 22466 pdem-server-gb3_0.0.12-1_all.deb
 Files: 
- 6ddf8e4734448cc728d27c2bcfb6e199 1061 contrib/admin optional pdem-server-gb3_0.0.12-1.dsc
- 65a556f8a8c645a7e135e09939f961ad 37419 contrib/admin optional pdem-server-gb3_0.0.12.orig.tar.gz
- f23b172d1b9460d3d6a638ae9ba58348 1157 contrib/admin optional pdem-server-gb3_0.0.12-1.diff.gz
- f84c22bf04bbb17f135428d23008f2c1 22414 contrib/admin optional pdem-server-gb3_0.0.12-1_all.deb
+ 530cf4068d0ffb8c97d76477e04ea4a8 1061 contrib/admin optional pdem-server-gb3_0.0.12-1.dsc
+ 8f7de144853859890adc013ca74b71d3 1353 contrib/admin optional pdem-server-gb3_0.0.12-1.diff.gz
+ 57a4329263231d13467462aff7be8f31 22466 contrib/admin optional pdem-server-gb3_0.0.12-1_all.deb
