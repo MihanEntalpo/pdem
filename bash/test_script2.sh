@@ -12,9 +12,8 @@ echo $A
 PROGRESS=$(echo "$A*100/$LIMIT" | bc);
 
 echo "testtesttest"
-echo "[PDEM[progress"
+echo "[PDEM[progress=$PROGRESS]PDEM]"
 sleep 1
-echo "=$PROGRESS]PDEM]";
 
 done
 

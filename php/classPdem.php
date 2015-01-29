@@ -330,7 +330,7 @@ class pdem
 
 				return $part;
 			}
-			if (time() -  $mt >= $timeout_sec) return "";
+			if (time() -  $tm >= $timeout_sec) return "";
 		}
 		return $result;
 	}
