@@ -80,7 +80,7 @@ class Tools(object):
 
     @staticmethod
     def parseInt(x):
-        "Преобразовать что угодно в строку. Если не преобразуется - вернуть 0"
+        "Преобразовать что угодно в целое число. Если не получится - вернуть 0"
         try:
             v = int(x)
         except ValueError:
@@ -755,7 +755,7 @@ class PdemServerApp():
 
     # Конифгурация по умолчанию
     defaultConfig = {
-        "loglevel": logging.DEBUG,  # уровень логирования
+        "logLevel": logging.DEBUG,  # уровень логирования
         "listenAddr": "127.0.0.1",  # IP-адрес на котором надо слушать
         "listenPort": 5555,         # порт на котором надо слушать
         "daemonize": False,          # после запуска демонизироваться
@@ -768,7 +768,7 @@ class PdemServerApp():
         if config is not None:
             self.set_config(config)
         self.logger = logging.getLogger('pdem')
-        self.logger.setLevel(self.config['loglevel'])
+        self.logger.setLevel(self.config['logLevel'])
 
         if self.config['daemonize']:
             self.logger.addHandler(
@@ -874,15 +874,15 @@ class PdemConsole:
 
     # Параметры, которые можно сохранять в файл
     writable_params = [
-        "loglevel", "listenAddr", "listenPort", "daemonize", "daemonLogFile"
+        "logLevel", "listenAddr", "listenPort", "daemonize", "daemonLogFile"
     ]
 
     # Параметры, которые можно считывать из файла
-    readable_params = ["loglevel", "listenAddr", "listenPort",
+    readable_params = ["logLevel", "listenAddr", "listenPort",
                        "daemonize", "daemonLogFile"]
 
     # Набор строковых обозначений и числовых значений уровней логирования
-    loglevelMap = {
+    logLevelMap = {
         "DEBUG": logging.DEBUG, "INFO": logging.INFO,
         "ERROR": logging.ERROR, "WARINIG": logging.WARNING
     }
@@ -898,7 +898,7 @@ class PdemConsole:
 
         self.defaultConfig = {
             "command": "help",          # команда по умолчанию - справка
-            "loglevel": logging.DEBUG,  # уровень логирования
+            "logLevel": logging.DEBUG,  # уровень логирования
             "listenAddr": "127.0.0.1",  # IP-адрес на котором надо слушать
             "listenPort": 5555,         # порт на котором надо слушать
             "daemonize": False,          # после запуска демонизироваться
@@ -917,19 +917,24 @@ class PdemConsole:
         }
         if 'logLevel' in params:
 
-            if params['logLevel'] not in PdemConsole.loglevelMap:
-                raise Exception("Parameter logLevel should be one of the " +
-                                "following values: " + ",".join(
-                                    (PdemConsole.loglevelMap.keys())
-                                    ) + " but it's '"
-                                      + params['logLevel'] + "'"
-                                )
+            if (params['logLevel'] not in PdemConsole.logLevelMap):
+                if (
+                        Tools.parseInt(params['logLevel']) in
+                        PdemConsole.logLevelMap.values()):
+
+                    params['logLevel'] = Tools.parseInt(params['logLevel'])
+                else:
+                    raise Exception(
+                        "Parameter logLevel should be one of"
+                        "the following values: " + ",".join(
+                            PdemConsole.logLevelMap.keys()
+                        ) + " but it's '" + str(params['logLevel']) + "'")
             else:
-                params['logLevel'] = PdemConsole.loglevelMap[
+                params['logLevel'] = PdemConsole.logLevelMap[
                     params['logLevel']
                 ]
         if 'daemonize' in params:
-            daemonize = params['daemonize'].lower()
+            daemonize = str(params['daemonize']).lower()
             if daemonize not in YesNoMap:
                 raise Exception("Parameter daemonize should be one of the" +
                                 " following values: " + ",".join(
@@ -1005,9 +1010,9 @@ class PdemConsole:
             for param in s_params:
                 value = s_params[param]
                 if param in PdemConsole.writable_params:
-                    if param == "loglevel":
-                        for p in PdemConsole.loglevelMap:
-                            if PdemConsole.loglevelMap[p] == value:
+                    if param == "logLevel":
+                        for p in PdemConsole.logLevelMap:
+                            if PdemConsole.logLevelMap[p] == value:
                                 value = p
                     f.write(param + " = " + str(value) + "\n")
 
@@ -1059,6 +1064,8 @@ class PdemConsole:
                 params[key] = conf_params[key]
             if key in arg_params:
                 params[key] = arg_params[key]
+
+        params = self.validate(params)
 
         return params
 
@@ -1223,6 +1230,12 @@ def main():
         if "command" in printedParams:
             del printedParams['command']
 
+        if "logLevel" in printedParams:
+            for name in PdemConsole.logLevelMap:
+                if printedParams['logLevel'] == PdemConsole.logLevelMap[name]:
+                    printedParams['logLevel'] = name
+                    break
+
         paramsStr = '\n'.join([' : '.join(("  " + k, str(printedParams[k])))
                               for k in printedParams])
 
@@ -1270,7 +1283,7 @@ def main():
                 --listenAddr IP    specify address of interface where to listen
                 --listenPort PORT  specify port which should be listened
                 --daemonize Yes    if "yes","true" or "1", will be demonized
-                --logLevel LEVEL   loglevel, one of DEBUG, INFO, WARNING, ERROR
+                --logLevel LEVEL   logLevel, one of DEBUG, INFO, WARNING, ERROR
                 --daemonLogFile /path specify file where to put log if daemon
 
                 When "start", "stop" or "status" commands are runned, config
