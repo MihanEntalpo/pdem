@@ -1077,6 +1077,13 @@ class PdemClient(object):
     """
 
     def __init__(self, host, port, autoIOLoop=False):
+        """
+        Конструктор
+        host -- адрес хоста к которому подключаемся, например "127.0.0.1"
+        port -- порт к которому подключаемся
+        autoIOLoop -- автоматически создать IOLoop, нужно в том случае, если
+                      используется вне какого-то другого IOLoop'а
+        """
         self.host = host
         self.port = port
         self.loop = False
@@ -1089,6 +1096,7 @@ class PdemClient(object):
         self.connected = False
         self.buffer = b""
         self.stream = None
+        self.done_callback = None
 
     def _connected(self, future):
         try:
@@ -1171,7 +1179,10 @@ class PdemClient(object):
         elif self.commandName == "do":
             if self.autoIOLoop:
                 self._stop_ioloop()
-            print("pdem server answer:\n" + package.decode("UTF-8"))
+            if isinstance(self.done_callback, collections.Callable):
+                self.done_callback(package)
+            else:
+                print("pdem server answer:\n" + package.decode("UTF-8"))
         else:
             print("Command " + self.commandName +
                   " not supported in _parse_package yet")
@@ -1193,8 +1204,9 @@ class PdemClient(object):
         if self.autoIOLoop:
             self._start_ioloop()
 
-    def do(self, cmd_and_args):
+    def do(self, cmd_and_args, callback=None):
         self.command = cmd_and_args
+        self.done_callback = callback
         self.commandName = "do"
         if self.connected:
             self._run()
