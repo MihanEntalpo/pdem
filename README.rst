@@ -19,12 +19,12 @@ Install
 Usage of library
 ----------------
 
-Write config file to ~/.config/pdem-server.conf
+Write config file to ~/.config/pdem.conf
 
 ::
-    $ pdem-server writeConf --conf ~/.config/pdem-server.conf --daemonize Yes --logLevel WARNING --daemonLogFile /tmp/pdem.log
+    $ pdem-server writeConf --conf ~/.config/pdem.conf --daemonize Yes --logLevel WARNING --daemonLogFile /tmp/pdem.log
 
-Start server with default params, or by params, written to ~/.config/pdem-server.conf:
+Start server with default params, or by params, written to ~/.config/pdem.conf:
 
 ::
     $ pdem-server start
