@@ -1,6 +1,0 @@
-' Gambas class file
-
-INHERITS rProcess
-
-PUBLIC childrenNames AS NEW String[]
-

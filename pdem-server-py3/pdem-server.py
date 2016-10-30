@@ -3,6 +3,7 @@
 '''
 pdem-server на питоне
 '''
+
 __author__ = "Mihanentalpo"
 __version__ = "0.1"
 __revision__ = "$Id$"
@@ -31,7 +32,8 @@ class Tools(object):
     def explode_by_spaces(x):
         """
         Разбивает массив байты по пробелам,
-        игнорируя те пробелы, перед которыми стоит слэш
+        игнорируя те пробелы, перед которыми стоит слэш,
+        но только если это не двойной слеш
         """
         assert isinstance(x, bytearray) or isinstance(x, bytes)
         parts = []
@@ -105,7 +107,9 @@ class Tools(object):
 
 
 class PdemServer(TCPServer):
-    """Класс-сервер отвечающий за работу сетевой подсистемы Pdem"""
+    """
+    Класс-сервер отвечающий за работу сетевой подсистемы Pdem
+    """
 
     def __init__(self, io_loop=None, ssl_options=None, **kwargs):
         """Конструктор"""
@@ -162,10 +166,12 @@ class PdemServer(TCPServer):
         self.manager.connect(stream, address)
 
     def stop(self):
+        "Выключить сервер"
         self.logger.debug("Stop listening")
         TCPServer.stop(self)
 
     def die(self):
+        """Завершить работу сервера, всё поубивать, приготовиться к смерти"""
         self.stop()
         self.logger.debug("Unlink process and connection managers")
         self.manager.server = None
@@ -179,7 +185,6 @@ class ConnectionManager(object):
     Класс менеджера подключений, хранит все подключения и позволяет
     управлять ими.
     """
-
     def __init__(self, server):
         self.connections = {}
         self.server = server
@@ -205,13 +210,13 @@ class ConnectionManager(object):
         self.logger.debug("Connections count:{}".format(len(self.connections)))
 
     def close_all(self):
-        "Закрыть все открытые соединения"
+        """Закрыть все открытые соединения"""
         for conn in self.connections:
             self.connections[conn].close()
 
 
 class PdemConnection(object):
-
+    """Класс сетевого подключения"""
     def __init__(self, stream, address, manager):
         self.manager = manager
         self.stream = stream
@@ -222,14 +227,15 @@ class PdemConnection(object):
         self.stream.read_until_close(self._data_receive_done,
                                      self._data_receive)
         self.buffer = bytearray()
+        # Кодировка клиента, когда-нибудь она будет выбираться, пока прописана жёстко
         self.client_enc = "UTF-8"
 
     def toBytes(self, s):
-        "Преобазовать в байты строку в кодировке клиента"
+        """Преобазовать в байты строку в кодировке клиента"""
         return s.encode(self.client_enc)
 
     def toStr(self, bt):
-        "Преобразовать в строку последовательность байт в кодировке клиента"
+        """Преобразовать в строку последовательность байт в кодировке клиента"""
         return bt.decode(self.client_enc)
 
     def writePackage(self, data):
@@ -252,13 +258,12 @@ class PdemConnection(object):
         self.stream.close()
 
     def _on_close(self):
-        "Обработчик закрытия сокета"
-
+        """Обработчик закрытия сокета"""
         self.logger.info('Connection is closed by %s', self.address)
         self.manager.disconnect(self.address)
 
     def _data_receive(self, data):
-        "Приём кусочка данных"
+        """Приём кусочка данных"""
         try:
             text = self.toStr(data)
         except Exception:
@@ -270,11 +275,11 @@ class PdemConnection(object):
             pass
 
     def _data_receive_done(self, data):
-        "Функция-заглушка"
+        """Функция-заглушка"""
         pass
 
     def _try_to_cut_package(self):
-        "Попытка вырезать пакет из буфера данных"
+        """Попытка вырезать пакет из буфера данных"""
 
         start = b"[CMD["
         end = b"]CMD]"
@@ -370,14 +375,24 @@ class ProcessManager(object):
         for remItem in remove:
             del self.processes[remItem]
 
+    def get_proc_by_name(self, name):
+        """
+        Get process by it's name
+        :param name: str
+        :return: ProcessHandler
+        """
+        if name in self.processes:
+            return self.processes[name]
+        else:
+            return None
+
     def get_proc_list(self, showdead=True):
         """
-        Генерирует список процессов для передачи клиенту
+        Generate list of processes, prepared to send it to client
+        :return str bytearray, ready to send
         """
-        # строки результата
         result_lines = []
 
-        # результат
         result_data = b""
         for name in self.processes:
             proc = self.processes[name]
@@ -727,9 +742,9 @@ class CommandExecutor(object):
     @staticmethod
     def do_proclist(connection, parameters):
         """
-        Shop list of all processes
+        Show list of all processes
         parameters: showdead
-        if "showdead" keyword is set, proclist would show processes
+        "showdead" - is a keyword, if is set, proclist would show processes
         that are already finished.
         Format of list is: one process per line, separated by "\n"
         process' line consists of `words` delimited by space characters
@@ -737,15 +752,33 @@ class CommandExecutor(object):
         """
         # TODO ДОПИСАТЬ СПРАВКУ ПРО ФОРМАТ ВЫДАЧИ ПРОЦЕССОВ
 
-        #  Если первый параметр равен "showdead" - запомним об этом
-        showdead = Tools.list_item(parameters, 0) == b"showdead"
-        result = connection.manager.server.processes.get_proc_list(showdead)
+        need_showdead = Tools.list_item(parameters, 0) == b"showdead"
+        result = connection.manager.server.processes.get_proc_list(need_showdead)
         connection.writePackage(result)
 
     @staticmethod
     def do_burndead(connection, parameters):
-        "Сжечь мёртвые процессы"
+        """
+        'Burn' dead processes (removes it from memory)
+        no parameters
+        """
         connection.manager.server.processes.burn_dead()
+
+    @staticmethod
+    def de_setvar(connection, parameters):
+        """
+        Set variables, attached to a process
+        parameters: process_name variable_name=variable_value variable2_name=variable2_value
+        example:
+        'setvar my_long_process x=1 y=2'
+        Variables not used anyhow by pdem server, it's just to store some information with the process.
+        Variables' values are returned to the client by proclist command.
+        """
+        if len(parameters)==0:
+            pass
+        else:
+            name = parameters[0]
+            process = connection.manager.server.processes.get_proc_by_name(para)
 
 
 class PdemServerApp():
@@ -879,7 +912,7 @@ class PdemConsole:
 
     # Параметры, которые можно считывать из файла
     readable_params = ["logLevel", "listenAddr", "listenPort",
-                       "daemonize", "daemonLogFile"]
+                       "daemonize", "daemonLogFile", "conf"]
 
     # Набор строковых обозначений и числовых значений уровней логирования
     logLevelMap = {
