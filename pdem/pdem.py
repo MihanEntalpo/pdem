@@ -5,8 +5,7 @@ pdem-server на питоне
 '''
 
 __author__ = "Mihanentalpo"
-__version__ = "0.1"
-__revision__ = "$Id$"
+__version__ = "0.1.4"
 
 
 import logging
@@ -31,7 +30,7 @@ class Tools(object):
     @staticmethod
     def explode_by_spaces(x):
         """
-        Разбивает массив байты по пробелам,
+        Разбивает массив байтов по пробелам,
         игнорируя те пробелы, перед которыми стоит слэш,
         но только если это не двойной слеш
         """
@@ -555,11 +554,11 @@ class ProcessHandler(object):
         start = b"[PDEM["
         end = b"]PDEM]"
         start_pos = self.buffer.find(start)
-        if (start_pos > -1):
-            if (start_pos > 0):
+        if start_pos > -1:
+            if start_pos > 0:
                 self.buffer = self.buffer[start_pos::]
             end_pos = self.buffer.find(end)
-            if (end_pos > -1):
+            if end_pos > -1:
                 package = self.buffer[len(start):end_pos:]
                 self.buffer = self.buffer[end_pos + len(end)::]
                 self._parse_package(package)
@@ -783,7 +782,7 @@ class CommandExecutor(object):
 
 class PdemServerApp():
     """
-    Класс приложения сервера, связывающего между собой все его компоненты
+    Server application class. Link all parts together
     """
 
     # Конифгурация по умолчанию
@@ -813,6 +812,10 @@ class PdemServerApp():
         self.server.app = self
 
     def run(self):
+        """
+        Start server
+        :return:
+        """
         self.logger.info("Starting pdem server")
         try:
             # Если это возможно, запустим сервер
@@ -903,18 +906,19 @@ class PdemServerApp():
 
 
 class PdemConsole:
-    "Класс, отвечающий за конфигурацию и чтение параметров командной строки"
-
-    # Параметры, которые можно сохранять в файл
+    """
+    Reading config files and command line arguments class.
+    """
+    # Parameters, that could be saved into file
     writable_params = [
         "logLevel", "listenAddr", "listenPort", "daemonize", "daemonLogFile"
     ]
 
-    # Параметры, которые можно считывать из файла
+    # Parameters, that could be read from file
     readable_params = ["logLevel", "listenAddr", "listenPort",
                        "daemonize", "daemonLogFile", "conf"]
 
-    # Набор строковых обозначений и числовых значений уровней логирования
+    # Strings for selecting logging level
     logLevelMap = {
         "DEBUG": logging.DEBUG, "INFO": logging.INFO,
         "ERROR": logging.ERROR, "WARINIG": logging.WARNING
@@ -1007,7 +1011,7 @@ class PdemConsole:
         """
         fileConf = {}
         if path is None:
-            path = os.path.expanduser("~/.pdem-server.conf")
+            path = os.path.expanduser("~/.config/pdem.conf")
         path = os.path.realpath(path)
 
         self.logger.debug("Reading conf file:" + path)

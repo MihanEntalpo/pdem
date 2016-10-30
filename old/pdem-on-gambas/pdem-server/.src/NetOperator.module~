@@ -1,0 +1,231 @@
+' Gambas module file
+
+PUBLIC FUNCTION DoCmd(Client AS Socket, Data AS String) AS String
+  DIM n AS Integer
+  
+  n = MMain.Clients.Find(client)
+  IF n = -1 THEN RETURN
+  
+  'поместим в буфер клиента данные
+  MMain.ClientBuffers[n] &= Data
+  'Попытаемся найти и выполнить команду из буфера
+  RETURN BufferRunCmd(client, n)
+  
+END
+
+PUBLIC FUNCTION BufferRunCmd(Client AS Socket, num AS Integer) AS String
+  
+  DIM S AS String
+  DIM n1, n2 AS Integer
+  DIM part AS String
+  
+  DIM s1 AS String = "[CMD["
+  DIM s2 AS String = "]CMD]"
+  
+  s = MMain.ClientBuffers[num]
+  
+  'пробуем найти в S открывающий тэг команды
+  n1 = String.InStr(s, s1)
+  IF (n1 = 0) THEN RETURN ""
+  
+  n2 = String.InStr(s, s2, n1)
+  IF (n2 = 0) THEN RETURN ""
+  
+  part = String.Mid(s, n1 + String.Len(s1), n2 - n1 - String.Len(s1))
+  
+  DEBUG "Command string:" & part
+  
+  s = String.Right(s, String.Len(s) - n2 - String.Len(s2) + 1)
+  
+  DEBUG "Other Part:" & s
+  
+  MMain.ClientBuffers[num] = s
+  
+  DEBUG "Client message:" & part
+  
+  RETURN ExecFunction(Client, part)
+  
+END
+
+PUBLIC FUNCTION ParseCommand(Command AS String) AS clsCommand
+  
+  DIM cc AS NEW clsCommand
+  DIM S AS String
+  DIM i AS Integer
+  DIM mode AS Integer
+  DIM tmpString AS String
+  DIM PrevSlash AS Boolean
+  mode = 0
+  cc.CommandName = ""
+  'пройдем по всем символам
+  command = Trim(command)
+  FOR i = 1 TO String.Len(command)
+   'возмем i-й символ
+    s = String.Mid(command, i, 1)
+    
+    'Если это не пробел и не слэш - увеличим строку
+    IF (s <> " " AND s <> "\\") THEN tmpString &= s
+    'Если это слэш и перед ним был другой слэш, то добавим слэш к строке
+    IF (s = "\\" AND prevslash) THEN tmpString &= "\\"
+    'Если это пробел, и перед ним был слэш, добавим к строке пробел
+    IF (s = " " AND PrevSlash) THEN tmpString &= " "
+    'Если это пробел, и перед ним не было слэша
+    IF (s = " " AND NOT PrevSlash) THEN
+    'Если имя команды еще не записано - запишем
+      IF tmpString <> "" THEN
+        IF cc.CommandName = "" THEN
+          cc.CommandName = tmpString
+        ELSE
+          cc.Parameters.Add(tmpString)
+        END IF
+        tmpString = ""
+      END IF
+    END IF
+    PrevSlash = (s = "\\")
+  NEXT
+  IF tmpString <> "" THEN
+    IF cc.CommandName = "" THEN
+      cc.CommandName = tmpString
+    ELSE
+      cc.Parameters.Add(tmpString)
+    END IF
+    
+  END IF
+  RETURN cc
+END
+
+
+PUBLIC FUNCTION ExecFunction(Client AS Socket, Command AS String) AS String
+  
+  DIM cmd AS clsCommand
+  DIM Result AS String
+  DIM Cl AS Socket
+  DIM tStr AS String
+  DIM proc AS rProcess
+  DIM ShowDead AS Boolean
+  
+  cmd = ParseCommand(command)
+  DEBUG "Client command:" & cmd.CommandName
+  SELECT CASE cmd.CommandName
+  CASE "stop"
+    QUIT
+  CASE "disconnect"
+    client.Close
+  CASE "show"
+    result = "Parsing result:\n"
+    result &= "Command: \"" & cmd.CommandName & "\"\n"
+    FOR EACH tstr IN cmd.Parameters
+      result &= "Parameter: \"" & tstr & "\"\n"
+    NEXT
+  CASE "disconnectall"
+    FOR EACH cl IN MMain.Clients
+      cl.Close
+    NEXT
+  CASE "kill"
+    DEBUG "Kill command arrived"
+    IF (cmd.Parameters.Count = 0) THEN
+      RETURN "ERROR: 'kill' needs a process name to kill"
+    END IF
+    'proc = MMain.rProc.FindProcess(cmd.Parameters)
+    IF cmd.Parameters.count = 1 THEN
+        proc = MMain.rProc.FindProcess(cmd.Parameters[0])
+      IF IsNull(proc) THEN
+        RETURN "ERROR: process not found"
+      ELSE
+        MMain.rProc.KillProcess(cmd.Parameters)
+        RETURN "ok"
+      END IF
+    ELSE
+      MMain.rProc.KillProcess(cmd.Parameters)
+      RETURN "ok"
+    END IF
+    
+  CASE "runprocess"
+    RETURN RunProcess(cmd)
+  CASE "proclist"
+    IF (cmd.Parameters.Count = 0) THEN
+      ShowDead = FALSE
+    ELSE IF (cmd.Parameters[0] = "showdead")
+      ShowDead = TRUE
+    END IF
+    RETURN MMain.rProc.ProcList(ShowDead)
+  CASE "burndead"
+    RETURN MMain.rProc.BurnDead()
+  CASE "help"
+    result = ""
+    result &= "Syntax: COMMAND PARAM1 PARAM2 PARAM3 ...\n"
+    result &= "Every command or param = any symbols, except ' ' (space) and '\\' backslash. Space is a delimiter of command and parameters\n"
+    result &= "If you need to use space inside parameter or command, use '\\ ', and, if you need to use backslash itself, use '\\\\' \n"
+    result &= "Commands:\n "
+    result &= "stop - kill daemon\n"
+    result &= "disconnect - kick current client\n"
+    result &= "disconnectall - kick all clients\n"
+    result &= "kill - kills process by name\n"
+    result &= "    Example:  \"kill loader-process\" - kills process, named \"loader - process\""
+    result &= "show - shows parsing result of line\n"
+    result &= "   Example:  \"show runprocess yandex\\ 13 Яндекс\\ 13\\ или\\ не\\ яндекс\\ 13 http http://yandex.ru/?page=13\" - shows parsed words of line, can help to understand how spaces and backslashes are parsed \n"
+    result &= "runprocess %name% %title% (http|local|agregate) (http url|local script-filename|list of other runprocess commands) - run single process or agregate of many processes\n"
+    result &= "   Exapmles: \" runprocess yandex_page_1 Загрузка\\ страницы http http://yandex.ru/?page=1 \" - runs process of getting http://yandex.ru/?page=1\n"
+    result &= "             \" runprocess get_all_sites получение\\ данных\\ обо\\ всех\\ сайтах local /var/server-scripts/get_all_sites.sh \" - runs script in local filesystem \n"
+    result &= "             \" runprocess get_2_sites получение\\ данных\\ о\\ 2-х\\ сайтах agregate get_site_1 Получение\\ информации\\ об\\ 1\\ сайте local /usr/bin/getsite\\ num=1 get_site_2 Получение\\ информации\\ об\\ 2\\ сайте local /usr/bin/getsite\\ num=2\" - runs 2 scripts one by one, agregating it into one script \n"
+    result &= "\n"
+    result &= "proclist [showdead] - shows list of processes, with their statuses (if keyword 'showdead' specified - shows also dead processes"
+    result &= "burndead - removes all dead processes from internal list"
+  CASE ELSE
+    result = "ERROR:unknown_command"
+  END SELECT
+  
+  RETURN result
+  
+END
+
+
+PUBLIC FUNCTION RunProcess(cmd AS clsCommand) AS String
+
+  DIM Name, Title, mode AS String
+  DIM OtherParams AS NEW String[]
+  DIM i AS Integer
+  
+  DEBUG "Trying to run process"
+  
+  'Message.Info("RunProcess:" & cmd.CommandName & " params:" & cmd.Parameters.Join(" , "))
+  IF cmd.Parameters.Count < 4 THEN RETURN "ERROR: runprocess needs at least 4 parameters\n"
+  
+  name = Trim(cmd.Parameters[0])
+  title = Trim(cmd.Parameters[1])
+  mode = Trim(cmd.Parameters[2])
+  
+  IF (MMain.rProc.FindProcess(name) <> NULL) THEN
+    IF (MMain.rProc.FindProcess(name).alive = FALSE) THEN
+      DEBUG "Removing old dead process"
+      MMain.rProc.BurnSingleDead(name)
+    ELSE
+      DEBUG "error, duplicate process name: " & name
+      RETURN "ERROR: process' name already exists"
+    END IF
+  END IF
+  
+  FOR i = 3 TO cmd.Parameters.Count - 1
+    OtherParams.Add(Trim(cmd.Parameters[i]))
+  NEXT
+  
+  DEBUG "Running process:\n Type:" & mode & "\n Name:" & name & "\n Title:" & title & "\n Other params: " & OtherParams.Join("\n-> ")
+  
+  SELECT CASE mode
+    CASE "local"
+      DEBUG "Running local:" & OtherParams[0]
+      MMain.rProc.RunProcess(rProcess.TypeLocal, name, title, OtherParams)
+      'Message.Info("Running local script:" & OtherParams[0])
+    CASE "http"
+      DEBUG "Running http:" & OtherParams[0]
+      MMain.rProc.RunProcess(rProcess.TypeHttp, name, title, OtherParams)
+      'Message.Info("Runnong http process:" & OtherParams[1])
+    CASE "agregae"
+      DEBUG "Running aggregate process is not supported yet"
+      'Message.Info("Running agregate process not supported yet")
+  END SELECT
+  
+  DEBUG "Returning Ok"
+  RETURN "ok"
+  
+END
