@@ -1288,18 +1288,21 @@ class PdemClient(object):
                 proc_res["command"] = process[3]
                 proc_res["time_elapsed"] = int(process[4])
                 proc_res["is_alive"] = False
-                proc_res["supportsprogress"] = False
+                proc_res["is_supportsprogress"] = False
+                proc_res['vars'] = {}
                 others = process[5:]
                 match_res = {}
                 for other in others:
                     if other == "alive":
                         proc_res["is_alive"] = True
                     elif other == "supportsprogress=1":
-                        proc_res["supportsprogress"] = True
+                        proc_res["is_supportsprogress"] = True
                     elif Tools.re_match("progress=(?P<num>[0-9]+)", other, match_res):
                         proc_res["progress"] = int(match_res['num'])
+                    elif Tools.re_match("^(?P<varname>[^=])=(?P<varvalue>.*)$", other, match_res):
+                        proc_res['vars'][match_res['varname']] = match_res['varvalue']
+
                 print(others)
-                #proc_res[""]
 
                 procs_res[proc_res["name"]] = proc_res
             print("processes:\n", "\n".join(str(p) for p in processes))
