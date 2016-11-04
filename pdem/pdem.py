@@ -19,8 +19,7 @@ import collections
 import subprocess
 import os
 import sys
-import time
-import signal
+import re
 
 
 class Tools(object):
@@ -34,35 +33,47 @@ class Tools(object):
         игнорируя те пробелы, перед которыми стоит слэш,
         но только если это не двойной слеш
         """
-        assert isinstance(x, bytearray) or isinstance(x, bytes)
+        if isinstance(x, bytearray) or isinstance(x, bytes):
+            arr = x
+            need_decode = False
+        elif isinstance(x, str):
+            arr = x.encode("UTF-8")
+            need_decode = True
+
         parts = []
         cur_part = bytearray()
         prev_slash = False
         slash_byte = b"\\"[0]
         state = 0
-        l = len(x)
+        l = len(arr)
         for i in range(l):
-            if x[i] == slash_byte:
+            if arr[i] == slash_byte:
                 if prev_slash:
                     cur_part.append(slash_byte)
                     prev_slash = False
                 else:
                     prev_slash = True
-            elif x[i] == 32:
+            elif arr[i] == 32:
                 if prev_slash:
                     cur_part.append(32)
                     prev_slash = False
                 elif len(cur_part) > 0:
-                    parts.append(bytes(cur_part))
+                    if not need_decode:
+                        parts.append(bytes(cur_part))
+                    else:
+                        parts.append(cur_part.decode("UTF-8"))
                     cur_part = bytearray()
             else:
                 if prev_slash:
-                    cur_part.append([slash_byte, x[i]])
+                    cur_part.append([slash_byte, arr[i]])
                 else:
-                    cur_part.append(x[i])
+                    cur_part.append(arr[i])
 
         if len(cur_part):
-            parts.append(bytes(cur_part))
+            if not need_decode:
+                parts.append(bytes(cur_part))
+            else:
+                parts.append(cur_part.decode("UTF-8"))
 
         return parts
 
@@ -104,6 +115,15 @@ class Tools(object):
             [l.strip(" \t")
              for l in text.strip("\n\t ").split("\n")])
 
+    @staticmethod
+    def re_match(regexp, string, matches={}):
+        res = re.search(regexp, string)
+        if res:
+            d = res.groupdict()
+            for k in d:
+                matches[k] = d[k]
+            return True
+        return False
 
 class PdemServer(TCPServer):
     """
@@ -777,7 +797,7 @@ class CommandExecutor(object):
             pass
         else:
             name = parameters[0]
-            process = connection.manager.server.processes.get_proc_by_name(para)
+            process = connection.manager.server.processes.get_proc_by_name(name)
 
 
 class PdemServerApp():
@@ -1249,6 +1269,46 @@ class PdemClient(object):
             self._run()
         if self.autoIOLoop:
             self._start_ioloop()
+
+    def runprocess(self, name, title, command, callback=None, type="local"):
+        self.do(["runprocess", name, title, type, command], callback)
+
+    def proclist(self, callback=None, showdead=False):
+        cmd = ["proclist"]
+        if showdead:
+            cmd.append("showdead")
+        def parser(s):
+            processes = [Tools.explode_by_spaces(x) for x in s.decode("UTF-8").split("\n") if x]
+            proc_res = {}
+            procs_res = {}
+            for process in processes:
+                proc_res["name"] = process[0]
+                proc_res["title"] = process[1]
+                proc_res["type"] = process[2]
+                proc_res["command"] = process[3]
+                proc_res["time_elapsed"] = int(process[4])
+                proc_res["is_alive"] = False
+                proc_res["is_supportsprogress"] = False
+                proc_res['vars'] = {}
+                others = process[5:]
+                match_res = {}
+                for other in others:
+                    if other == "alive":
+                        proc_res["is_alive"] = True
+                    elif other == "supportsprogress=1":
+                        proc_res["is_supportsprogress"] = True
+                    elif Tools.re_match("progress=(?P<num>[0-9]+)", other, match_res):
+                        proc_res["progress"] = int(match_res['num'])
+                    elif Tools.re_match("^(?P<varname>[^=])=(?P<varvalue>.*)$", other, match_res):
+                        proc_res['vars'][match_res['varname']] = match_res['varvalue']
+
+                print(others)
+
+                procs_res[proc_res["name"]] = proc_res
+            print("processes:\n", "\n".join(str(p) for p in processes))
+            print("processes:\n", "\n".join(str(procs_res[p]) for p in procs_res))
+            print("Callback:", callback)
+        self.do(cmd, parser)
 
     def status(self):
         self.command = ["proclist"]
