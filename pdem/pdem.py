@@ -1273,6 +1273,12 @@ class PdemClient(object):
     def runprocess(self, name, title, command, callback=None, type="local"):
         self.do(["runprocess", name, title, type, command], callback)
 
+    def kill(self, name, callback):
+        self.do(["kill", name], callback)
+
+    def burndead(self, callback):
+        self.do(["burndead"], callback)
+
     def proclist(self, callback=None, showdead=False):
         cmd = ["proclist"]
         if showdead:
