@@ -1156,6 +1156,11 @@ class PdemClient(object):
         self.done_callback = None
 
     def _connected(self, future):
+        """
+        Приватная функция, берущая Future, получаемый при поппытке подключиться к серверу и пытающаяся его обработать
+        :param future:
+        :return:
+        """
         try:
             self.stream = future.result()
         except Exception as e:
@@ -1182,16 +1187,26 @@ class PdemClient(object):
         pass
 
     def _data_receive(self, data):
+        """
+        Приватная функция приёма данных (вызывается при реальном приёме данных)
+        :param data: bytes массив байт данных
+        """
         self.buffer = self.buffer + data
         while self._try_to_cut_package():
             pass
 
     def _start_ioloop(self):
+        """
+        Запустить ioloop (цикл асинхронного сервера/клиента tornado)
+        """
         if not self.loop:
             self.loop = True
             IOLoop.instance().start()
 
     def _stop_ioloop(self):
+        """
+        Остановить ioloop
+        """
         if self.loop:
             IOLoop.instance().stop()
             self.loop = False
@@ -1200,11 +1215,19 @@ class PdemClient(object):
         self.commands.append(command)
 
     def _run(self):
+        """
+        Выполнить команду (если есть)
+        """
         if len(self.command) > 0:
             command = self.command
             self._writeCommand(command)
 
     def _writeCommand(self, command):
+        """
+        Отправить команду серверу
+        :param command: list<str> список строк составляющих команду и её параметры
+        :return:
+        """
         data = [Tools.addSlashes(item.encode("UTF-8")) for item in command]
         package = b" ".join(data)
         self.stream.write(b"[CMD[" + package + b"]CMD]")
@@ -1226,6 +1249,12 @@ class PdemClient(object):
         return False
 
     def _parse_package(self, package):
+        """
+        Распарсить пришедший пакет.
+        По сути, самим парсингом функция не занимается, а передаёт пакет в done_callback или просто выводит на экран
+        :param package: bytes массив байт пакета
+        :return:
+        """
         if self.commandName == 'stop':
             if self.autoIOLoop:
                 self._stop_ioloop()
@@ -1254,6 +1283,10 @@ class PdemClient(object):
             IOLoop.instance().stop()
 
     def stop(self):
+        """
+        Команда остановки сервера. Отправляем ему команду quit
+        :return:
+        """
         self.command = ["quit"]
         self.commandName = "stop"
         if self.connected:
@@ -1262,6 +1295,12 @@ class PdemClient(object):
             self._start_ioloop()
 
     def do(self, cmd_and_args, callback=None):
+        """
+        Выполнить произвольную команду на сервере
+        :param cmd_and_args: list<str> список из строк, являющийся командой и её параметрами
+        :param callback: функция, которую нужно вызывать по завершению
+        :return:
+        """
         self.command = cmd_and_args
         self.done_callback = callback
         self.commandName = "do"
@@ -1271,15 +1310,42 @@ class PdemClient(object):
             self._start_ioloop()
 
     def runprocess(self, name, title, command, callback=None, type="local"):
+        """
+        Выполнить процесс (команда отправляется серверу)
+        :param name: str уникальное название процесса, его идентификатор
+        :param title: str заголовок процесса (человекочитаемое название)
+        :param command: str команда (которую нужно выполнить)
+        :param callback: функция коллбэк, которую нужно запустить когда выполнение процесса состоится
+        :param type: тип процесса. Обычно "local", других пока не предусмотрено
+        :return:
+        """
         self.do(["runprocess", name, title, type, command], callback)
 
-    def kill(self, name, callback):
+    def kill(self, name, callback=None):
+        """
+        Убить процесс (команда серверу)
+        :param name: имя процесса
+        :param callback: функция, которую нужно выполнить по завершении убийства процесса
+        :return:
+        """
         self.do(["kill", name], callback)
 
-    def burndead(self, callback):
+    def burndead(self, callback=None):
+        """
+        Сжечь мёртвых (команда серверу)
+        уничтожает все завершенные процессы из памяти сервера
+        :param callback: функция, которую нужно выполнить по завершении
+        :return:
+        """
         self.do(["burndead"], callback)
 
     def proclist(self, callback=None, showdead=False):
+        """
+        Запросить с сервера список процессов
+        :param callback: функция-коллбэк, которой будет передан список процессов
+        :param showdead: boolean показывать мёртвых в списке процессов?
+        :return:
+        """
         cmd = ["proclist"]
         if showdead:
             cmd.append("showdead")
@@ -1293,6 +1359,7 @@ class PdemClient(object):
                 proc_res["type"] = process[2]
                 proc_res["command"] = process[3]
                 proc_res["time_elapsed"] = int(process[4])
+                proc_res["time_estimated"] = -1
                 proc_res["is_alive"] = False
                 proc_res["is_supportsprogress"] = False
                 proc_res['vars'] = {}
@@ -1305,15 +1372,18 @@ class PdemClient(object):
                         proc_res["is_supportsprogress"] = True
                     elif Tools.re_match("progress=(?P<num>[0-9]+)", other, match_res):
                         proc_res["progress"] = int(match_res['num'])
-                    elif Tools.re_match("^(?P<varname>[^=])=(?P<varvalue>.*)$", other, match_res):
+                    elif Tools.re_match("^timeestimated=(?P<time>[0-9]+)$", other, match_res):
+                        proc_res['time_estimated'] =  int(match_res['time'])
+                    elif Tools.re_match("^(?P<varname>[^=]+)=(?P<varvalue>.*)$", other, match_res) or other=="Preved=medved":
                         proc_res['vars'][match_res['varname']] = match_res['varvalue']
-
+                    else:
+                        print("unknown field `{}` in proclist server's output (all others:`{}`)".format(other, "`,`".join(others)))
+                        print("first removed items: `{}`".format("`,`".join(process[0:5])))
                 print(others)
 
                 procs_res[proc_res["name"]] = proc_res
-            print("processes:\n", "\n".join(str(p) for p in processes))
-            print("processes:\n", "\n".join(str(procs_res[p]) for p in procs_res))
-            print("Callback:", callback)
+            if callable(callback):
+                callback(procs_res)
         self.do(cmd, parser)
 
     def status(self):
