@@ -1,0 +1,5 @@
+include pdem
+include LICENSE
+include README.rst
+include CHANGES.txt
+exclude setup.py

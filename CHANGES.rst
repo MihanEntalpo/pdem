@@ -1,4 +1,7 @@
-* 2016-10-30 mmihanentalpo <mihanentalpo@yandex.ru> 0.1.4
+* 2016-11-18 mihanentalpo <mihanentalpo@yandex.ru> 0.1.5
+- Fixed bugs in package
+
+* 2016-10-30 mihanentalpo <mihanentalpo@yandex.ru> 0.1.4
 - Finished python3 implementation, and uploaded pypi package "pdem"
 
 * Sun Sep 08 2013 mihanentalpo <mihanentalpo@yandex.ru> 0.0.12
