@@ -5,17 +5,18 @@ pdem-server на питоне
 '''
 
 __author__ = "Mihanentalpo"
-__version__ = "0.1.5"
+__version__ = "1.0.0"
 
 
 import logging
 
 from tornado.ioloop import IOLoop
-from tornado.iostream import IOStream
+from tornado.iostream import IOStream, StreamClosedError
 from tornado.tcpserver import TCPServer
 from tornado.tcpclient import TCPClient
 
 import collections
+from collections.abc import Callable
 import subprocess
 import os
 import sys
@@ -142,8 +143,7 @@ class PdemServer(TCPServer):
         self.running_state = False
 
         logging.info('pdem server started')
-        TCPServer.__init__(self, io_loop=io_loop, ssl_options=ssl_options,
-                           **kwargs)
+        super().__init__(ssl_options=ssl_options, **kwargs)
 
     def setApp(self, app):
         self.app = app
@@ -169,7 +169,7 @@ class PdemServer(TCPServer):
     def _set_timeout(self):
         "Установить вызов хэндлера через 1 секунду"
         if self.timeout_descriptor == 0:
-            self.timeout_descriptor = IOLoop.instance().call_later(
+            self.timeout_descriptor = IOLoop.current().call_later(
                 1, self._handle_timeout
             )
 
@@ -196,7 +196,7 @@ class PdemServer(TCPServer):
         self.manager.server = None
         self.processes.server = None
         if self.timeout_descriptor != 0:  # Если таймаут еще не отработал убъем
-            IOLoop.instance().remove_timeout(self.timeout_descriptor)
+            IOLoop.current().remove_timeout(self.timeout_descriptor)
 
 
 class ConnectionManager(object):
@@ -240,14 +240,37 @@ class PdemConnection(object):
         self.manager = manager
         self.stream = stream
         self.address = address
-        self.stream.set_close_callback(self._on_close)
+        self._set_close_callback()
         self.logger = logging.getLogger("pdem.PdemConnection")
         self.logger.debug("PdemConnection created")
-        self.stream.read_until_close(self._data_receive_done,
-                                     self._data_receive)
+        IOLoop.current().spawn_callback(self._read_stream)
         self.buffer = bytearray()
         # Кодировка клиента, когда-нибудь она будет выбираться, пока прописана жёстко
         self.client_enc = "UTF-8"
+
+    def _set_close_callback(self):
+        """Register a callback to be executed when the stream closes."""
+        if hasattr(self.stream, "close_future"):
+            self.stream.close_future.add_done_callback(
+                lambda fut: self._on_close()
+            )
+        else:
+            # Compatibility with older Tornado releases
+            self.stream.set_close_callback(self._on_close)
+
+    async def _read_stream(self):
+        """Continuously read from the stream until it is closed."""
+        try:
+            while True:
+                data = await self.stream.read_bytes(4096, partial=True)
+                if not data:
+                    break
+                self._data_receive(data)
+        except StreamClosedError as e:
+            if getattr(e, "partial", None):
+                self._data_receive(e.partial)
+        finally:
+            self._data_receive_done(None)
 
     def toBytes(self, s):
         """Преобазовать в байты строку в кодировке клиента"""
@@ -483,7 +506,7 @@ class ProcessHandler(object):
         """
         Функция запуска команды в отдельном процессе
         """
-        ioloop = IOLoop.instance()
+        ioloop = IOLoop.current()
         PIPE = subprocess.PIPE
 
         self.processObj = subprocess.Popen(
@@ -634,7 +657,7 @@ class CommandExecutor(object):
                 ce = CommandExecutor
 
                 methods = [m for m in dir(ce) if isinstance(
-                    getattr(ce, m), collections.Callable
+                    getattr(ce, m), Callable
                 ) and m.startswith("do_")]
 
                 data = """
@@ -863,14 +886,14 @@ class PdemServerApp():
                 self.logger.error("Error daemonizing:" + str(e))
 
         self.logger.debug("Entering IOLoop")
-        IOLoop.instance().start()
+        IOLoop.current().start()
 
     def die(self):
         """
         Stop app and exit
         """
         self.logger.debug("Stop IOLoop")
-        IOLoop.instance().stop()
+        IOLoop.current().stop()
         self.logger.debug("Stop and destroy tcp server")
         self.server.die()
         self.server.app = None
@@ -1146,8 +1169,7 @@ class PdemClient(object):
         self.loop = False
         self.autoIOLoop = autoIOLoop
         self.client = TCPClient()
-        self.future_stream = self.client.connect(self.host, self.port)
-        self.future_stream.add_done_callback(self._connected)
+        self._connect_future = IOLoop.current().spawn_callback(self._connect)
         self.command = None
         self.commandName = ""
         self.connected = False
@@ -1155,32 +1177,57 @@ class PdemClient(object):
         self.stream = None
         self.done_callback = None
 
-    def _connected(self, future):
-        """
-        Приватная функция, берущая Future, получаемый при поппытке подключиться к серверу и пытающаяся его обработать
-        :param future:
-        :return:
-        """
+    async def _connect(self):
         try:
-            self.stream = future.result()
+            stream = await self.client.connect(self.host, self.port)
         except Exception as e:
-            if self.commandName == "status" or self.commandName == "do":
+            self._handle_connection_error(e)
+        else:
+            self._connected(stream)
+
+    def _handle_connection_error(self, error):
+        try:
+            raise error
+        except Exception as e:
+            if self.commandName in ("status", "do"):
                 print("pdem server isn't running")
-                if self.autoIOLoop:
-                    self._stop_ioloop()
             elif self.commandName == "stop":
                 print("pdem server isn't running, so it cannot be stopped")
-                if self.autoIOLoop:
-                    self._stop_ioloop()
             else:
                 print("Connection error:" + str(e))
-            return
+            if self.autoIOLoop:
+                self._stop_ioloop()
 
-        self.stream.read_until_close(self._data_receive_done,
-                                     self._data_receive)
-        self.stream.set_close_callback(self._disconnect)
+    def _connected(self, stream):
+        self.stream = stream
+
+        self._set_close_callback()
+        IOLoop.current().spawn_callback(self._read_stream)
         self.connected = True
         self._run()
+
+    def _set_close_callback(self):
+        """Register disconnect callback when the stream is closed."""
+        if hasattr(self.stream, "close_future"):
+            self.stream.close_future.add_done_callback(
+                lambda fut: self._disconnect()
+            )
+        else:
+            self.stream.set_close_callback(self._disconnect)
+
+    async def _read_stream(self):
+        """Continuously read data from the server until the stream closes."""
+        try:
+            while True:
+                data = await self.stream.read_bytes(4096, partial=True)
+                if not data:
+                    break
+                self._data_receive(data)
+        except StreamClosedError as e:
+            if getattr(e, "partial", None):
+                self._data_receive(e.partial)
+        finally:
+            self._data_receive_done(None)
 
     def _data_receive_done(self, data):
         "Функция-заглушка"
@@ -1201,14 +1248,14 @@ class PdemClient(object):
         """
         if not self.loop:
             self.loop = True
-            IOLoop.instance().start()
+            IOLoop.current().start()
 
     def _stop_ioloop(self):
         """
         Остановить ioloop
         """
         if self.loop:
-            IOLoop.instance().stop()
+            IOLoop.current().stop()
             self.loop = False
 
     def _add_command(self, command):
@@ -1265,7 +1312,7 @@ class PdemClient(object):
         elif self.commandName == "do":
             if self.autoIOLoop:
                 self._stop_ioloop()
-            if isinstance(self.done_callback, collections.Callable):
+            if isinstance(self.done_callback, Callable):
                 self.done_callback(package)
             else:
                 print("pdem server answer:\n" + package.decode("UTF-8"))
@@ -1280,7 +1327,7 @@ class PdemClient(object):
         if self.commandName == "stop":
             print("pdem server successfully stopped")
         if self.autoIOLoop:
-            IOLoop.instance().stop()
+            IOLoop.current().stop()
 
     def stop(self):
         """
