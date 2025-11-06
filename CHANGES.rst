@@ -1,3 +1,6 @@
+* 2024-05-29 OpenAI <opensource@openai.com> 1.0.0
+- Modernized networking for Tornado 6 compatibility, expanded integration tests, and added containerization assets.
+
 * 2016-11-18 mihanentalpo <mihanentalpo@yandex.ru> 0.1.5
 - Fixed bugs in package
 
