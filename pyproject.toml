@@ -32,7 +32,7 @@ pdem = "pdem:pdem.main"
 
 [tool.setuptools.dynamic]
 version = {attr = "pdem.pdem.__version__"}
-readme = {files = ["README.rst", "CHANGES.rst"], content-type = "text/x-rst"}
+readme = {file = ["README.rst", "CHANGES.rst"], content-type = "text/x-rst"}
 
 [tool.setuptools.packages.find]
 include = ["pdem*"]
