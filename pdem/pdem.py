@@ -5,7 +5,7 @@ pdem-server на питоне
 '''
 
 __author__ = "Mihanentalpo"
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 
 import logging
@@ -439,8 +439,9 @@ class ProcessManager(object):
         for name in self.processes:
             proc = self.processes[name]
             if proc.alive or showdead:
-                progr_enb = ("supportsprogress="
-                             + "1" if proc.progressEnabled else "0")
+                progr_enb = "supportsprogress={}".format(
+                    "1" if proc.progressEnabled else "0"
+                )
                 progr = "progress=" + str(proc.progress)
                 timeest = "timeestimated=" + str(proc.est_time)
                 line = [name, proc.title, proc.ptype, proc.command,
@@ -1397,37 +1398,42 @@ class PdemClient(object):
         if showdead:
             cmd.append("showdead")
         def parser(s):
-            processes = [Tools.explode_by_spaces(x) for x in s.decode("UTF-8").split("\n") if x]
-            proc_res = {}
+            processes = [
+                Tools.explode_by_spaces(x)
+                for x in s.decode("UTF-8").split("\n")
+                if x
+            ]
             procs_res = {}
             for process in processes:
-                proc_res["name"] = process[0]
-                proc_res["title"] = process[1]
-                proc_res["type"] = process[2]
-                proc_res["command"] = process[3]
-                proc_res["time_elapsed"] = int(process[4])
-                proc_res["time_estimated"] = -1
-                proc_res["is_alive"] = False
-                proc_res["is_supportsprogress"] = False
-                proc_res['vars'] = {}
+                proc_res = {
+                    "name": process[0],
+                    "title": process[1],
+                    "type": process[2],
+                    "command": process[3],
+                    "time_elapsed": int(process[4]),
+                    "time_estimated": -1,
+                    "is_alive": False,
+                    "is_supportsprogress": False,
+                    "progress": 0,
+                    "vars": {},
+                }
                 others = process[5:]
-                match_res = {}
                 for other in others:
+                    match_res = {}
                     if other == "alive":
                         proc_res["is_alive"] = True
                     elif other == "supportsprogress=1":
                         proc_res["is_supportsprogress"] = True
                     elif Tools.re_match("progress=(?P<num>[0-9]+)", other, match_res):
-                        proc_res["progress"] = int(match_res['num'])
+                        proc_res["progress"] = int(match_res["num"])
                     elif Tools.re_match("^timeestimated=(?P<time>[0-9]+)$", other, match_res):
-                        proc_res['time_estimated'] =  int(match_res['time'])
-                    elif Tools.re_match("^(?P<varname>[^=]+)=(?P<varvalue>.*)$", other, match_res) or other=="Preved=medved":
-                        proc_res['vars'][match_res['varname']] = match_res['varvalue']
-                    else:
-                        print("unknown field `{}` in proclist server's output (all others:`{}`)".format(other, "`,`".join(others)))
-                        print("first removed items: `{}`".format("`,`".join(process[0:5])))
-                print(others)
-
+                        proc_res["time_estimated"] = int(match_res["time"])
+                    elif Tools.re_match(
+                        "^(?P<varname>[^=]+)=(?P<varvalue>.*)$",
+                        other,
+                        match_res,
+                    ) or other == "Preved=medved":
+                        proc_res["vars"][match_res["varname"]] = match_res["varvalue"]
                 procs_res[proc_res["name"]] = proc_res
             if callable(callback):
                 callback(procs_res)

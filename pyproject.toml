@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pdem"
+dynamic = ["readme", "version"]
+description = "process daemonizer client-server library"
+authors = [{name = "MihanEntalpo", email = "mihanentalpo@yandex.ru"}]
+license = {file = "LICENSE"}
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: System :: Monitoring",
+    "Environment :: Console",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3 :: Only",
+]
+keywords = ["run", "process", "daemonize", "monitor", "kill", "status"]
+dependencies = [
+    "tornado",
+]
+
+[project.urls]
+Homepage = "https://github.com/MihanEntalpo/pdem"
+
+[project.scripts]
+pdem = "pdem:pdem.main"
+
+[tool.setuptools.dynamic]
+version = {attr = "pdem.pdem.__version__"}
+readme = {file = ["README.rst", "CHANGES.rst"], content-type = "text/x-rst"}
+
+[tool.setuptools.packages.find]
+include = ["pdem*"]
