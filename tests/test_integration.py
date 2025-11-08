@@ -145,12 +145,18 @@ def pdem_server():
 def test_runprocess_and_proclist(tmp_path: Path, pdem_server: ServerHandle):
     script = tmp_path / "worker.py"
     script.write_text(
-        "import sys\n"
         "import time\n"
         "print('[PDEM[progressenabled]PDEM]', flush=True)\n"
-        "for value in (25, 50, 75, 100):\n"
+        "stages = [\n"
+        "    ('stage 1', 25),\n"
+        "    ('stage 2', 50),\n"
+        "    ('stage 3', 75),\n"
+        "]\n"
+        "for name, value in stages:\n"
+        "    print(f'[PDEM[var:state={name}]PDEM]', flush=True)\n"
         "    print(f'[PDEM[progress={value}]PDEM]', flush=True)\n"
-        "    time.sleep(0.05)\n"
+        "    time.sleep(0.2)\n"
+        "print('[PDEM[progress=100]PDEM]', flush=True)\n"
         "print('[PDEM[var:state=done]PDEM]', flush=True)\n"
     )
 
@@ -160,25 +166,66 @@ def test_runprocess_and_proclist(tmp_path: Path, pdem_server: ServerHandle):
     command = f"{sys.executable} {script}"
     client.runprocess("testproc", "Test Process", command)
 
-    time.sleep(0.5)
+    def fetch_proclist_data(*, showdead=False):
+        responses = []
 
-    results = []
+        def store_results(data):
+            responses.append(data)
 
-    def store_results(data):
-        results.append(data)
+        client.proclist(store_results, showdead=showdead)
 
-    client.proclist(store_results, showdead=True)
+        assert responses, "Expected proclist callback to be invoked"
+        return responses[0]
 
-    assert results, "Expected proclist callback to be invoked"
-    processes = results[0]
-    assert "testproc" in processes
+    running_snapshot = {}
 
-    process_info = processes["testproc"]
-    assert process_info["title"] == "Test Process"
-    assert process_info["is_supportsprogress"] is True
-    assert process_info["progress"] == 100
-    assert process_info["is_alive"] is False
-    assert process_info["vars"].get("state") == "done"
+    def observe_running():
+        processes = fetch_proclist_data()
+        process_info = processes.get("testproc")
+        if (
+            process_info
+            and process_info["is_alive"]
+            and 0 < process_info["progress"] < 100
+            and process_info["vars"].get("state")
+        ):
+            running_snapshot["process"] = process_info
+            return True
+        return False
+
+    assert wait_for_condition(observe_running, timeout=3.0), (
+        "Expected running process with reported progress and state"
+    )
+
+    final_snapshot = {}
+
+    def observe_final():
+        processes = fetch_proclist_data(showdead=True)
+        process_info = processes.get("testproc")
+        if (
+            process_info
+            and not process_info["is_alive"]
+            and process_info["progress"] == 100
+            and process_info["vars"].get("state") == "done"
+        ):
+            final_snapshot["process"] = process_info
+            return True
+        return False
+
+    assert wait_for_condition(observe_final, timeout=3.0), (
+        "Expected completed process with final progress and state"
+    )
+
+    running_info = running_snapshot["process"]
+    assert running_info["is_supportsprogress"] is True
+    assert 0 < running_info["progress"] < 100
+    assert "stage" in running_info["vars"].get("state", "")
+
+    final_info = final_snapshot["process"]
+    assert final_info["title"] == "Test Process"
+    assert final_info["is_supportsprogress"] is True
+    assert final_info["progress"] == 100
+    assert final_info["is_alive"] is False
+    assert final_info["vars"].get("state") == "done"
 
     if client.stream is not None:
         client.stream.close()
