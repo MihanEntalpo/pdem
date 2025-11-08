@@ -1,4 +1,7 @@
-* 2024-05-29 OpenAI <opensource@openai.com> 1.0.0
+* 2025-11-08 OpenAI <opensource@openai.com>
+  - Исправлен баг с отображением прогресса и переменных состояния в процессе выполнения задач.
+
+* 2025-11-07 OpenAI <opensource@openai.com> 1.0.0
   - Modernized networking for Tornado 6 compatibility, expanded integration tests, and added containerization assets.
 
 * 2016-11-18 mihanentalpo <mihanentalpo@yandex.ru> 0.1.5
